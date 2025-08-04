@@ -1,1 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voiceflow API 예제</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen,
+                Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f4f4f9;
+        }
+        #chat-container {
+            width: 450px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            background-color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 80vh;
+        }
+        #result-container {
+            flex-grow: 1;
+            padding: 20px;
+            overflow-y: auto;
+            border-bottom: 1px solid #eee;
+        }
+        .message {
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+        .message.user {
+            text-align: right;
+        }
+        .message .sender {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+            font-size: 0.9em;
+            color: #555;
+        }
+        .message .content {
+            display: inline-block;
+            padding: 10px 15px;
+            border-radius: 18px;
+        }
+        .message.user .content {
+            background-color: #007bff;
+            color: white;
+        }
+        .message.bot .content {
+            background-color: #e9e9eb;
+            color: #333;
+        }
+        #input-container {
+            display: flex;
+            padding: 15px;
+        }
+        #user-input {
+            flex-grow: 1;
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 20px;
+            margin-right: 10px;
+            font-size: 1em;
+        }
+        #send-button {
+            padding: 12px 20px;
+            border: none;
+            background-color: #007bff;
+            color: white;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background-color 0.3s;
+        }
+        #send-button:hover {
+            background-color: #0056b3;
+        }
+    </style>
+</head>
+<body>
 
+    <div id="chat-container">
+        <div id="result-container"></div>
+        <div id="input-container">
+            <input type="text" id="user-input" placeholder="메시지를 입력하세요...">
+            <button id="send-button">전송</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 설정 ---
+        // 1. Voiceflow 프로젝트의 Dialog API 키를 여기에 붙여넣으세요.
+        //    (Integrations -> Dialog API -> Copy API Key)
+        const API_KEY = 'YOUR_VOICEFLOW_API_KEY'; 
+        
+        // 2. 고유한 사용자 ID를 생성하거나 기존 ID를 사용합니다.
+        const USER_ID = 'user_' + Math.random().toString(36).substring(2, 9);
+        
+        // 3. 상호작용할 Voiceflow 프로젝트의 버전을 지정합니다. (일반적으로 'production')
+        const VERSION_ID = 'production'; 
+
+        // --- HTML 요소 가져오기 ---
+        const resultContainer = document.getElementById('result-container');
+        const userInput = document.getElementById('user-input');
+        const sendButton = document.getElementById('send-button');
+
+        // --- 이벤트 리스너 설정 ---
+        sendButton.addEventListener('click', handleSendMessage);
+        userInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                handleSendMessage();
+            }
+        });
+
+        // --- 함수 정의 ---
+
+        // 메시지를 보내는 함수
+        async function handleSendMessage() {
+            const messageText = userInput.value.trim();
+            if (!messageText) return;
+
+            appendMessage('나', messageText, 'user');
+            userInput.value = '';
+
+            try {
+                // Voiceflow API에 요청 보내기
+                const response = await fetch(`https://general-runtime.voiceflow.com/state/${VERSION_ID}/user/${USER_ID}/interact`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': API_KEY,
+                        'versionID': VERSION_ID
+                    },
+                    body: JSON.stringify({
+                        action: {
+                            type: 'text',
+                            payload: messageText
+                        }
+                    })
+                });
+
+                const data = await response.json();
+
+                // API 응답 처리 및 화면에 표시
+                data.forEach(trace => {
+                    if (trace.type === 'speak' || trace.type === 'text') {
+                        appendMessage('봇', trace.payload.message, 'bot');
+                    }
+                });
+
+            } catch (error) {
+                console.error('Voiceflow API 오류:', error);
+                appendMessage('오류', '죄송합니다, 메시지를 처리하는 중 문제가 발생했습니다.', 'bot');
+            }
+        }
+
+        // 채팅창에 메시지를 추가하는 함수
+        function appendMessage(sender, text, messageType) {
+            const messageDiv = document.createElement('div');
+            messageDiv.classList.add('message', messageType);
+
+            const senderSpan = document.createElement('span');
+            senderSpan.classList.add('sender');
+            senderSpan.textContent = sender;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.classList.add('content');
+            contentDiv.textContent = text;
+            
+            messageDiv.appendChild(senderSpan);
+            messageDiv.appendChild(contentDiv);
+            resultContainer.appendChild(messageDiv);
+            
+            // 스크롤을 항상 아래로 이동
+            resultContainer.scrollTop = resultContainer.scrollHeight;
+        }
+    </script>
+
+</body>
+</html>
